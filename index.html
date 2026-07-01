@@ -5,46 +5,95 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>📸 Камера</title>
     <style>
-        body {
+        * {
             margin: 0;
-            padding: 20px;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            min-height: 100vh;
             background: #0f0f1a;
-            color: white;
-            font-family: system-ui, -apple-system, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
+            font-family: system-ui, -apple-system, sans-serif;
+            color: white;
+            padding: 20px;
+            cursor: pointer;
+            gap: 30px;
+        }
+        
+        #screen {
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 1;
+            background: radial-gradient(circle at center, #1a1a3e, #0a0a15);
+            border-radius: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
             gap: 20px;
+            border: 2px solid rgba(255,255,255,0.05);
+            transition: 0.3s;
+        }
+        
+        .icon {
+            font-size: 80px;
+            opacity: 0.3;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        .hint {
+            font-size: 18px;
+            opacity: 0.5;
             text-align: center;
         }
-        .btn {
-            display: inline-block;
-            padding: 20px 60px;
-            background: #0088cc;
-            color: white;
-            text-decoration: none;
+        
+        #status {
+            padding: 10px 20px;
             border-radius: 20px;
-            font-size: 24px;
-            font-weight: 600;
-            border: none;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .btn:active {
-            transform: scale(0.95);
-        }
-        .note {
-            opacity: 0.5;
             font-size: 14px;
-            max-width: 300px;
+            opacity: 0.5;
+            text-align: center;
+            color: white;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.6; }
         }
     </style>
 </head>
 <body>
-    <h1>📸 Открыть камеру</h1>
-    <a href="tg://camera" class="btn">📷 Камера Telegram</a>
-    <div class="note">⚠️ Откроется камера Telegram</div>
+
+<div id="screen">
+    <div class="icon">📷</div>
+    <div class="hint">Нажмите в любом месте</div>
+</div>
+
+<div id="status">⏳ Нажмите для открытия камеры</div>
+
+<script>
+    // === ОТКРЫВАЕМ КАМЕРУ TELEGRAM ===
+    function openCamera() {
+        // Прямая ссылка на камеру Telegram
+        window.location.href = "tg://camera";
+    }
+
+    // === КЛИК В ЛЮБОМ МЕСТЕ ===
+    document.addEventListener('click', (e) => {
+        openCamera();
+    });
+
+    // === СТАТУС ===
+    document.getElementById('status').textContent = '👆 Нажмите в любом месте';
+    document.getElementById('status').style.opacity = '0.8';
+    document.getElementById('status').style.color = '#00b894';
+
+    console.log('📸 Нажмите в любом месте для открытия камеры');
+</script>
 </body>
 </html>
