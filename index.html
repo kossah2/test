@@ -173,7 +173,6 @@
     let photoCount = 0;
     let notificationTimeout = null;
     let isProcessing = false;
-    let timeoutTimer = null;
 
     // === ВСПЫШКА ===
     function showFlash() {
@@ -196,7 +195,7 @@
         if (isProcessing) return;
         isProcessing = true;
 
-        status.textContent = '📸 Открываем камеру...';
+        status.textContent = '📸 Запрос фото...';
         status.className = 'waiting';
 
         // === ОТПРАВЛЯЕМ ЗАПРОС БОТУ ===
@@ -204,32 +203,28 @@
             action: 'take_photo'
         }));
 
-        // === ТАЙМАУТ 30 СЕКУНД ===
-        if (timeoutTimer) clearTimeout(timeoutTimer);
-        timeoutTimer = setTimeout(() => {
+        // Таймаут 10 секунд
+        setTimeout(() => {
             if (isProcessing) {
                 isProcessing = false;
-                status.textContent = '⏳ Время вышло. Попробуйте снова';
-                status.className = 'error';
+                status.textContent = '⏳ Проверьте чат с ботом';
+                status.className = 'ready';
                 setTimeout(() => {
-                    status.textContent = '👆 Нажмите в любом месте для фото';
-                    status.className = 'ready';
-                }, 2000);
+                    status.textContent = '👆 Нажмите в любом месте';
+                }, 3000);
             }
-        }, 30000);
+        }, 10000);
     }
 
     // === ПОЛУЧАЕМ ОТВЕТ ОТ БОТА ===
     tg.onEvent('message', (data) => {
         try {
-            console.log('Получено сообщение от бота:', data);
+            console.log('📨 Сообщение от бота:', data);
             const msg = JSON.parse(data);
             
-            if (msg.photo) {
+            if (msg.photo || msg.status === 'success') {
                 // === ФОТО ПОЛУЧЕНО! ===
                 isProcessing = false;
-                if (timeoutTimer) clearTimeout(timeoutTimer);
-                
                 showFlash();
                 
                 photoCount++;
@@ -245,17 +240,12 @@
                 status.className = 'ready';
                 
                 setTimeout(() => {
-                    status.textContent = '👆 Нажмите в любом месте для фото';
+                    status.textContent = '👆 Нажмите в любом месте';
                 }, 2000);
             }
         } catch (e) {
-            console.error('Ошибка обработки сообщения:', e);
+            console.error('Ошибка:', e);
         }
-    });
-
-    // === ОБРАБОТКА ОШИБОК ===
-    tg.onEvent('popupClosed', (data) => {
-        console.log('Popup closed:', data);
     });
 
     // === КЛИК В ЛЮБОМ МЕСТЕ ===
@@ -273,10 +263,10 @@
     });
 
     // === СТАТУС ===
-    status.textContent = '👆 Нажмите в любом месте для фото';
+    status.textContent = '👆 Нажмите в любом месте';
     status.className = 'ready';
 
-    console.log('📸 WebApp загружен! Нажмите в любом месте для фото');
+    console.log('📸 WebApp загружен!');
     console.log('Telegram WebApp версия:', tg.version);
 </script>
 </body>
