@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📸 Фото</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            min-height: 100vh;
+            background: var(--tg-theme-bg-color, #0f0f1a);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: system-ui, -apple-system, sans-serif;
+            color: var(--tg-theme-text-color, white);
+            padding: 20px;
+            cursor: pointer;
+            gap: 20px;
+        }
+        
+        #screen {
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 1;
+            background: radial-gradient(circle at center, var(--tg-theme-secondary-bg-color, #1a1a3e), var(--tg-theme-bg-color, #0a0a15));
+            border-radius: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            border: 2px solid var(--tg-theme-hint-color, rgba(255,255,255,0.05));
+            transition: 0.3s;
+        }
+        
+        .icon {
+            font-size: 80px;
+            opacity: 0.3;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        .hint {
+            font-size: 18px;
+            opacity: 0.5;
+            text-align: center;
+        }
+        
+        #notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            background: var(--tg-theme-button-color, #00b894);
+            backdrop-filter: blur(20px);
+            padding: 40px 60px;
+            border-radius: 30px;
+            font-size: 42px;
+            font-weight: 700;
+            color: var(--tg-theme-button-text-color, white);
+            box-shadow: 0 30px 80px rgba(0, 184, 148, 0.4);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 1000;
+            text-align: center;
+        }
+        #notification.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+        #notification .sub {
+            font-size: 16px;
+            font-weight: 400;
+            opacity: 0.8;
+            margin-top: 6px;
+        }
+        
+        #flash {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 999;
+            transition: 0.1s;
+        }
+        #flash.active {
+            opacity: 0.8;
+        }
+        
+        #counter {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: var(--tg-theme-secondary-bg-color, rgba(255,255,255,0.08));
+            backdrop-filter: blur(10px);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            opacity: 0.5;
+            color: var(--tg-theme-text-color, white);
+        }
+        
+        #status {
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            opacity: 0.5;
+            text-align: center;
+            max-width: 400px;
+            color: var(--tg-theme-text-color, white);
+            transition: 0.3s;
+        }
+        #status.ready {
+            opacity: 0.8;
+            color: var(--tg-theme-button-color, #00b894);
+        }
+        #status.waiting {
+            opacity: 0.8;
+            color: #ffd93d;
+        }
+        #status.error {
+            opacity: 0.8;
+            color: #ff6b6b;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.6; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="flash"></div>
+
+<div id="notification">
+    📸 Фото сделано!
+    <div class="sub">отправлено</div>
+</div>
+
+<div id="screen">
+    <div class="icon">📷</div>
+    <div class="hint">Нажмите в любом месте</div>
+</div>
+
+<div id="counter">📸 0</div>
+<div id="status">⏳ Загрузка...</div>
+
+<script>
+    // === ИНИЦИАЛИЗАЦИЯ ===
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    tg.ready();
+
+    // === ЭЛЕМЕНТЫ ===
+    const flash = document.getElementById('flash');
+    const notification = document.getElementById('notification');
+    const status = document.getElementById('status');
+    const counter = document.getElementById('counter');
+
+    let photoCount = 0;
+    let notificationTimeout = null;
+    let isProcessing = false;
+    let timeoutTimer = null;
+
+    // === ВСПЫШКА ===
+    function showFlash() {
+        flash.classList.add('active');
+        setTimeout(() => flash.classList.remove('active'), 150);
+    }
+
+    // === УВЕДОМЛЕНИЕ ===
+    function showNotification(text = '📸 Фото сделано!') {
+        if (notificationTimeout) clearTimeout(notificationTimeout);
+        notification.querySelector('.sub').textContent = 'отправлено';
+        notification.classList.add('show');
+        notificationTimeout = setTimeout(() => {
+            notification.classList.remove('show');
+        }, 2000);
+    }
+
+    // === ГЛАВНАЯ ФУНКЦИЯ ===
+    function takePhoto() {
+        if (isProcessing) return;
+        isProcessing = true;
+
+        status.textContent = '📸 Открываем камеру...';
+        status.className = 'waiting';
+
+        // === ОТПРАВЛЯЕМ ЗАПРОС БОТУ ===
+        tg.sendData(JSON.stringify({
+            action: 'take_photo'
+        }));
+
+        // === ТАЙМАУТ 30 СЕКУНД ===
+        if (timeoutTimer) clearTimeout(timeoutTimer);
+        timeoutTimer = setTimeout(() => {
+            if (isProcessing) {
+                isProcessing = false;
+                status.textContent = '⏳ Время вышло. Попробуйте снова';
+                status.className = 'error';
+                setTimeout(() => {
+                    status.textContent = '👆 Нажмите в любом месте для фото';
+                    status.className = 'ready';
+                }, 2000);
+            }
+        }, 30000);
+    }
+
+    // === ПОЛУЧАЕМ ОТВЕТ ОТ БОТА ===
+    tg.onEvent('message', (data) => {
+        try {
+            console.log('Получено сообщение от бота:', data);
+            const msg = JSON.parse(data);
+            
+            if (msg.photo) {
+                // === ФОТО ПОЛУЧЕНО! ===
+                isProcessing = false;
+                if (timeoutTimer) clearTimeout(timeoutTimer);
+                
+                showFlash();
+                
+                photoCount++;
+                counter.textContent = `📸 ${photoCount}`;
+                
+                showNotification();
+                
+                if (navigator.vibrate) {
+                    navigator.vibrate(50);
+                }
+                
+                status.textContent = `✅ Фото #${photoCount} получено!`;
+                status.className = 'ready';
+                
+                setTimeout(() => {
+                    status.textContent = '👆 Нажмите в любом месте для фото';
+                }, 2000);
+            }
+        } catch (e) {
+            console.error('Ошибка обработки сообщения:', e);
+        }
+    });
+
+    // === ОБРАБОТКА ОШИБОК ===
+    tg.onEvent('popupClosed', (data) => {
+        console.log('Popup closed:', data);
+    });
+
+    // === КЛИК В ЛЮБОМ МЕСТЕ ===
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('#notification')) return;
+        takePhoto();
+    });
+
+    // === ПРОБЕЛ ===
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+            e.preventDefault();
+            takePhoto();
+        }
+    });
+
+    // === СТАТУС ===
+    status.textContent = '👆 Нажмите в любом месте для фото';
+    status.className = 'ready';
+
+    console.log('📸 WebApp загружен! Нажмите в любом месте для фото');
+    console.log('Telegram WebApp версия:', tg.version);
+</script>
+</body>
+</html>
