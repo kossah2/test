@@ -181,9 +181,8 @@
     }
 
     // === УВЕДОМЛЕНИЕ ===
-    function showNotification(text = '📸 Фото сделано!') {
+    function showNotification() {
         if (notificationTimeout) clearTimeout(notificationTimeout);
-        notification.querySelector('.sub').textContent = 'отправлено';
         notification.classList.add('show');
         notificationTimeout = setTimeout(() => {
             notification.classList.remove('show');
@@ -195,15 +194,15 @@
         if (isProcessing) return;
         isProcessing = true;
 
-        status.textContent = '📸 Запрос фото...';
+        status.textContent = '📸 Запрос разрешения...';
         status.className = 'waiting';
 
         // === ОТПРАВЛЯЕМ ЗАПРОС БОТУ ===
         tg.sendData(JSON.stringify({
-            action: 'take_photo'
+            action: 'request_photo'
         }));
 
-        // Таймаут 10 секунд
+        // Таймаут
         setTimeout(() => {
             if (isProcessing) {
                 isProcessing = false;
@@ -213,7 +212,7 @@
                     status.textContent = '👆 Нажмите в любом месте';
                 }, 3000);
             }
-        }, 10000);
+        }, 15000);
     }
 
     // === ПОЛУЧАЕМ ОТВЕТ ОТ БОТА ===
@@ -222,8 +221,7 @@
             console.log('📨 Сообщение от бота:', data);
             const msg = JSON.parse(data);
             
-            if (msg.photo || msg.status === 'success') {
-                // === ФОТО ПОЛУЧЕНО! ===
+            if (msg.photo) {
                 isProcessing = false;
                 showFlash();
                 
@@ -254,20 +252,11 @@
         takePhoto();
     });
 
-    // === ПРОБЕЛ ===
-    document.addEventListener('keydown', (e) => {
-        if (e.code === 'Space') {
-            e.preventDefault();
-            takePhoto();
-        }
-    });
-
     // === СТАТУС ===
     status.textContent = '👆 Нажмите в любом месте';
     status.className = 'ready';
 
     console.log('📸 WebApp загружен!');
-    console.log('Telegram WebApp версия:', tg.version);
 </script>
 </body>
 </html>
