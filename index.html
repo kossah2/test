@@ -125,10 +125,6 @@
             opacity: 0.8;
             color: var(--tg-theme-button-color, #00b894);
         }
-        #status.error {
-            opacity: 0.8;
-            color: #ff6b6b;
-        }
         
         @keyframes pulse {
             0%, 100% { opacity: 0.3; }
@@ -154,12 +150,10 @@
 <div id="status">⏳ Нажмите для фото</div>
 
 <script>
-    // === ИНИЦИАЛИЗАЦИЯ ===
     const tg = window.Telegram.WebApp;
     tg.expand();
     tg.ready();
 
-    // === ЭЛЕМЕНТЫ ===
     const flash = document.getElementById('flash');
     const notification = document.getElementById('notification');
     const status = document.getElementById('status');
@@ -181,7 +175,6 @@
         }, 1500);
     }
 
-    // === ОТКРЫТЬ КАМЕРУ ===
     function openCamera() {
         const input = document.createElement('input');
         input.type = 'file';
@@ -199,62 +192,52 @@
 
             showFlash();
 
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const photoData = event.target.result;
-                
-                photoCount++;
-                counter.textContent = `📸 ${photoCount}`;
-                
-                showNotification();
-                
-                if (navigator.vibrate) {
-                    navigator.vibrate(50);
-                }
+            // === ОТПРАВЛЯЕМ ФАЙЛ ЧЕРЕЗ FORM DATA ===
+            const formData = new FormData();
+            formData.append('photo', file);
+            formData.append('chat_id', tg.initDataUnsafe.user.id);
 
-                // === ОТПРАВЛЯЕМ ФОТО БОТУ ===
-                try {
-                    tg.sendData(JSON.stringify({
-                        action: 'photo_taken',
-                        photo: photoData
-                    }));
-                    console.log('📤 Фото отправлено боту');
+            // Отправляем на сервер
+            fetch('https://your-server.com/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    photoCount++;
+                    counter.textContent = `📸 ${photoCount}`;
+                    showNotification();
                     status.textContent = `✅ Фото #${photoCount} отправлено!`;
-                } catch (err) {
-                    console.error('❌ Ошибка отправки:', err);
-                    status.textContent = '❌ Ошибка отправки фото';
-                    status.className = 'error';
+                    status.className = 'ready';
+                } else {
+                    status.textContent = '❌ Ошибка отправки';
                 }
-                
-                status.className = 'ready';
-                
-                setTimeout(() => {
-                    status.textContent = '👆 Нажмите для нового фото';
-                }, 1500);
-            };
-            reader.readAsDataURL(file);
+            })
+            .catch(err => {
+                console.error(err);
+                status.textContent = '❌ Ошибка сети';
+            });
+
+            setTimeout(() => {
+                status.textContent = '👆 Нажмите для нового фото';
+            }, 1500);
             
             input.remove();
         };
 
         input.click();
-        
         status.textContent = '📸 Открываем камеру...';
         status.className = 'ready';
     }
 
-    // === КЛИК В ЛЮБОМ МЕСТЕ ===
     document.addEventListener('click', (e) => {
         if (e.target.closest('#notification')) return;
         openCamera();
     });
 
-    // === СТАТУС ===
     status.textContent = '👆 Нажмите в любом месте';
     status.className = 'ready';
-
-    console.log('📸 Нажмите в любом месте для фото');
-    console.log('Telegram WebApp версия:', tg.version);
 </script>
 </body>
 </html>
