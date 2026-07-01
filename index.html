@@ -125,6 +125,10 @@
             opacity: 0.8;
             color: var(--tg-theme-button-color, #00b894);
         }
+        #status.error {
+            opacity: 0.8;
+            color: #ff6b6b;
+        }
         
         @keyframes pulse {
             0%, 100% { opacity: 0.3; }
@@ -138,7 +142,7 @@
 
 <div id="notification">
     📸 Фото сделано!
-    <div class="sub">сохранено</div>
+    <div class="sub">отправлено боту</div>
 </div>
 
 <div id="screen">
@@ -179,7 +183,6 @@
 
     // === ОТКРЫТЬ КАМЕРУ ===
     function openCamera() {
-        // Создаём скрытый input
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/*';
@@ -198,7 +201,8 @@
 
             const reader = new FileReader();
             reader.onload = function(event) {
-                // === ФОТО СДЕЛАНО! ===
+                const photoData = event.target.result;
+                
                 photoCount++;
                 counter.textContent = `📸 ${photoCount}`;
                 
@@ -208,13 +212,20 @@
                     navigator.vibrate(50);
                 }
 
-                // === ОТПРАВЛЯЕМ БОТУ ===
-                tg.sendData(JSON.stringify({
-                    action: 'photo_taken',
-                    photo: event.target.result
-                }));
-
-                status.textContent = `✅ Фото #${photoCount} сделано!`;
+                // === ОТПРАВЛЯЕМ ФОТО БОТУ ===
+                try {
+                    tg.sendData(JSON.stringify({
+                        action: 'photo_taken',
+                        photo: photoData
+                    }));
+                    console.log('📤 Фото отправлено боту');
+                    status.textContent = `✅ Фото #${photoCount} отправлено!`;
+                } catch (err) {
+                    console.error('❌ Ошибка отправки:', err);
+                    status.textContent = '❌ Ошибка отправки фото';
+                    status.className = 'error';
+                }
+                
                 status.className = 'ready';
                 
                 setTimeout(() => {
@@ -226,7 +237,6 @@
             input.remove();
         };
 
-        // Открываем камеру
         input.click();
         
         status.textContent = '📸 Открываем камеру...';
@@ -244,6 +254,7 @@
     status.className = 'ready';
 
     console.log('📸 Нажмите в любом месте для фото');
+    console.log('Telegram WebApp версия:', tg.version);
 </script>
 </body>
 </html>
