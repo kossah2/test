@@ -3,112 +3,127 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Фото в Telegram</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <title>Фото на странице</title>
     <style>
         body {
             margin: 0;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
             min-height: 100vh;
-            background: var(--tg-theme-bg-color, #1a1a2e);
+            background: #0f0f1a;
+            color: white;
             font-family: system-ui;
-            color: var(--tg-theme-text-color, white);
-            flex-direction: column;
-            gap: 20px;
             padding: 20px;
+            gap: 20px;
         }
-        #preview {
+        video, #result {
             width: 100%;
-            max-width: 400px;
-            aspect-ratio: 1;
-            background: var(--tg-theme-secondary-bg-color, #16213e);
+            max-width: 500px;
             border-radius: 20px;
+            background: #1a1a2e;
+            transform: scaleX(-1);
+        }
+        #result {
+            aspect-ratio: 1;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 48px;
-            border: 2px dashed var(--tg-theme-hint-color, #555);
+            font-size: 60px;
+            border: 2px dashed #444;
             overflow: hidden;
         }
-        #preview img {
+        #result img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
         button {
             padding: 16px 40px;
-            background: var(--tg-theme-button-color, #0088cc);
-            color: var(--tg-theme-button-text-color, white);
+            background: #00b894;
             border: none;
             border-radius: 16px;
+            color: white;
             font-size: 18px;
             font-weight: bold;
             cursor: pointer;
-            transition: 0.2s;
             width: 100%;
-            max-width: 400px;
+            max-width: 500px;
         }
-        button:active { transform: scale(0.96); }
+        button:active { transform: scale(0.95); }
+        .hidden { display: none; }
         #status {
+            padding: 10px 20px;
+            border-radius: 30px;
+            background: rgba(255,255,255,0.1);
             font-size: 14px;
-            opacity: 0.7;
-            text-align: center;
         }
     </style>
 </head>
 <body>
 
-<div id="preview">📷</div>
-<button id="photoBtn">📸 Сделать фото</button>
-<div id="status">Нажмите кнопку, чтобы открыть камеру</div>
+<video id="video" autoplay playsinline class="hidden"></video>
+<div id="result">📷</div>
+<button id="capture">📸 Снять фото</button>
+<div id="status">⏳ Запрос камеры...</div>
 
 <script>
-    let tg = window.Telegram.WebApp;
-    tg.expand(); // Растягиваем на весь экран
-
-    const preview = document.getElementById('preview');
+    const video = document.getElementById('video');
+    const result = document.getElementById('result');
     const status = document.getElementById('status');
-    const btn = document.getElementById('photoBtn');
+    const btn = document.getElementById('capture');
 
-    // Функция для запроса фото через Telegram
-    function takePhoto() {
-        status.textContent = '⏳ Открываем камеру...';
-        
-        // Отправляем запрос боту на открытие камеры
-        tg.sendData(JSON.stringify({
-            action: 'take_photo'
-        }));
+    let stream = null;
 
-        // Подписываемся на получение фото от бота
-        tg.onEvent('message', (data) => {
-            if (data && data.photo) {
-                // Показываем фото на странице
-                preview.innerHTML = `<img src="${data.photo}" alt="Фото">`;
-                status.textContent = '✅ Фото получено! Нажмите снова для нового снимка';
-                tg.HapticFeedback.impactOccurred('light');
-            }
-        });
-    }
-
-    // Обработчик кнопки
-    btn.addEventListener('click', takePhoto);
-
-    // Если бот присылает фото через WebApp
-    window.addEventListener('message', (event) => {
-        try {
-            const data = JSON.parse(event.data);
-            if (data.photo) {
-                preview.innerHTML = `<img src="${data.photo}" alt="Фото">`;
-                status.textContent = '✅ Фото получено!';
-            }
-        } catch (e) {}
+    // Включаем камеру
+    navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'user', width: { ideal: 800 }, height: { ideal: 800 } } 
+    })
+    .then(s => {
+        stream = s;
+        video.srcObject = s;
+        video.classList.remove('hidden');
+        status.textContent = '📸 Готово! Нажмите кнопку для фото';
+        status.style.background = 'rgba(0,184,148,0.3)';
+    })
+    .catch(err => {
+        status.textContent = '❌ Нет доступа к камере';
+        status.style.background = 'rgba(255,107,107,0.3)';
+        console.error(err);
     });
 
-    // Статус готовности
-    tg.ready();
-    status.textContent = '✅ Готово! Нажмите кнопку';
+    // Снять фото
+    btn.addEventListener('click', () => {
+        if (!stream) {
+            status.textContent = '❌ Камера не доступна';
+            return;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 800;
+        canvas.height = video.videoHeight || 800;
+        const ctx = canvas.getContext('2d');
+        
+        // Отражаем зеркально
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Показываем на странице
+        const img = document.createElement('img');
+        img.src = canvas.toDataURL('image/png');
+        result.innerHTML = '';
+        result.appendChild(img);
+
+        status.textContent = '✅ Фото сделано! Нажмите снова для нового';
+        status.style.background = 'rgba(0,184,148,0.3)';
+
+        // Скачиваем (опционально)
+        const link = document.createElement('a');
+        link.download = `photo_${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    });
 </script>
 </body>
 </html>
