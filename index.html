@@ -3,141 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📸 Камера</title>
+    <title>Фото в Telegram</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            user-select: none;
-        }
         body {
-            min-height: 100vh;
-            background: var(--tg-theme-bg-color, #0f0f1a);
+            margin: 0;
             display: flex;
-            flex-direction: column;
-            align-items: center;
             justify-content: center;
-            font-family: system-ui, -apple-system, sans-serif;
+            align-items: center;
+            min-height: 100vh;
+            background: var(--tg-theme-bg-color, #1a1a2e);
+            font-family: system-ui;
             color: var(--tg-theme-text-color, white);
+            flex-direction: column;
+            gap: 20px;
             padding: 20px;
-            cursor: pointer;
-            gap: 30px;
         }
-        
-        #screen {
+        #preview {
             width: 100%;
             max-width: 400px;
             aspect-ratio: 1;
-            background: radial-gradient(circle at center, var(--tg-theme-secondary-bg-color, #1a1a3e), var(--tg-theme-bg-color, #0a0a15));
-            border-radius: 30px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 20px;
-            border: 2px solid var(--tg-theme-hint-color, rgba(255,255,255,0.05));
-        }
-        
-        .icon {
-            font-size: 80px;
-            opacity: 0.3;
-            animation: pulse 2s ease-in-out infinite;
-        }
-        
-        .hint {
-            font-size: 18px;
-            opacity: 0.5;
-            text-align: center;
-        }
-        
-        #status {
-            padding: 10px 20px;
+            background: var(--tg-theme-secondary-bg-color, #16213e);
             border-radius: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 48px;
+            border: 2px dashed var(--tg-theme-hint-color, #555);
+            overflow: hidden;
+        }
+        #preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        button {
+            padding: 16px 40px;
+            background: var(--tg-theme-button-color, #0088cc);
+            color: var(--tg-theme-button-text-color, white);
+            border: none;
+            border-radius: 16px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+            width: 100%;
+            max-width: 400px;
+        }
+        button:active { transform: scale(0.96); }
+        #status {
             font-size: 14px;
-            opacity: 0.5;
+            opacity: 0.7;
             text-align: center;
-            color: var(--tg-theme-text-color, white);
-            transition: 0.3s;
-        }
-        #status.active {
-            opacity: 0.8;
-            color: var(--tg-theme-button-color, #00b894);
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 0.3; }
-            50% { opacity: 0.6; }
         }
     </style>
 </head>
 <body>
 
-<div id="screen">
-    <div class="icon">📷</div>
-    <div class="hint">Нажмите в любом месте</div>
-</div>
-
-<div id="status">⏳ Подготовка...</div>
+<div id="preview">📷</div>
+<button id="photoBtn">📸 Сделать фото</button>
+<div id="status">Нажмите кнопку, чтобы открыть камеру</div>
 
 <script>
-    // === ИНИЦИАЛИЗАЦИЯ TELEGRAM ===
-    const tg = window.Telegram.WebApp;
-    tg.expand();
-    tg.ready();
+    let tg = window.Telegram.WebApp;
+    tg.expand(); // Растягиваем на весь экран
 
+    const preview = document.getElementById('preview');
     const status = document.getElementById('status');
+    const btn = document.getElementById('photoBtn');
 
-    // === ОТКРЫВАЕМ КАМЕРУ TELEGRAM ===
-    function openCamera() {
-        status.textContent = '📸 Открываем камеру...';
-        status.className = 'active';
+    // Функция для запроса фото через Telegram
+    function takePhoto() {
+        status.textContent = '⏳ Открываем камеру...';
         
-        // === ГЛАВНАЯ ХИТРОСТЬ: requestContact ===
-        // Это открывает нативную камеру Telegram!
-        try {
-            // Способ 1: requestContact
-            tg.requestContact();
-            
-            // Способ 2: sendData (если requestContact не сработает)
-            tg.sendData(JSON.stringify({
-                action: 'open_camera'
-            }));
-            
-            // Способ 3: showPopup с кнопкой камеры
-            tg.showPopup({
-                title: '📸 Камера',
-                message: 'Нажмите кнопку для открытия камеры:',
-                buttons: [
-                    { id: 'camera', type: 'default', text: '📷 Открыть камеру' },
-                    { id: 'cancel', type: 'cancel', text: '❌ Отмена' }
-                ]
-            }, (buttonId) => {
-                if (buttonId === 'camera') {
-                    status.textContent = '📸 Камера открыта!';
-                    status.className = 'active';
-                } else {
-                    status.textContent = '❌ Отменено';
-                }
-            });
-            
-        } catch (e) {
-            console.error('Ошибка:', e);
-            status.textContent = '❌ Ошибка открытия камеры';
-        }
+        // Отправляем запрос боту на открытие камеры
+        tg.sendData(JSON.stringify({
+            action: 'take_photo'
+        }));
+
+        // Подписываемся на получение фото от бота
+        tg.onEvent('message', (data) => {
+            if (data && data.photo) {
+                // Показываем фото на странице
+                preview.innerHTML = `<img src="${data.photo}" alt="Фото">`;
+                status.textContent = '✅ Фото получено! Нажмите снова для нового снимка';
+                tg.HapticFeedback.impactOccurred('light');
+            }
+        });
     }
 
-    // === КЛИК В ЛЮБОМ МЕСТЕ ===
-    document.addEventListener('click', (e) => {
-        openCamera();
+    // Обработчик кнопки
+    btn.addEventListener('click', takePhoto);
+
+    // Если бот присылает фото через WebApp
+    window.addEventListener('message', (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.photo) {
+                preview.innerHTML = `<img src="${data.photo}" alt="Фото">`;
+                status.textContent = '✅ Фото получено!';
+            }
+        } catch (e) {}
     });
 
-    // === СТАТУС ===
-    status.textContent = '👆 Нажмите в любом месте';
-    status.className = 'active';
-
-    console.log('📸 Нажмите в любом месте');
+    // Статус готовности
+    tg.ready();
+    status.textContent = '✅ Готово! Нажмите кнопку';
 </script>
 </body>
 </html>
