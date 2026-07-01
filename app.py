@@ -1,21 +1,26 @@
 from flask import Flask, request, jsonify
-from aiogram import Bot, types
-from aiogram.client.session.aiohttp import AiohttpSession
-import asyncio
+import requests
 import os
 import logging
-import base64
-from io import BytesIO
 
 logging.basicConfig(level=logging.INFO)
 
-# === НАСТРОЙКИ ===
-BOT_TOKEN = "8439897161:AAEkWaO7MZS-pSP1wbLnGN7kqKQ_UTa65Zc"
-PROXY_URL = "socks5://37.18.73.60:5566"
-
 app = Flask(__name__)
 
-# === КОРНЕВОЙ МАРШРУТ (ДЛЯ ПРОВЕРКИ) ===
+# === НАСТРОЙКИ ===
+BOT_TOKEN = "8439897161:AAEkWaO7MZS-pSP1wbLnGN7kqKQ_UTa65Zc"
+TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
+
+# === ПРОКСИ (SOCKS5) ===
+PROXY_URL = "socks5://37.18.73.60:5566"
+
+# === НАСТРОЙКА ПРОКСИ ДЛЯ REQUESTS ===
+proxies = {
+    'http': PROXY_URL,
+    'https': PROXY_URL
+}
+
+# === ПРОВЕРКА ===
 @app.route('/')
 def index():
     return "✅ Сервер работает!", 200
@@ -33,40 +38,28 @@ def upload_file():
         if not chat_id:
             return jsonify({'success': False, 'error': 'Нет chat_id'}), 400
         
-        # Читаем файл
-        photo_data = file.read()
+        # === ОТПРАВЛЯЕМ ФОТО В TELEGRAM ЧЕРЕЗ ПРОКСИ ===
+        files = {'photo': (file.filename, file.read(), file.content_type)}
+        data = {'chat_id': chat_id, 'caption': '📸 Фото с сайта!'}
         
-        # Отправляем боту (в отдельном потоке)
-        asyncio.run(send_photo_to_bot(chat_id, photo_data))
+        # Отправляем запрос через прокси
+        response = requests.post(
+            f"{TELEGRAM_API}/sendPhoto",
+            files=files,
+            data=data,
+            proxies=proxies  # 👈 ПРОКСИ
+        )
         
-        return jsonify({'success': True})
+        if response.status_code == 200:
+            logging.info(f"✅ Фото отправлено в чат {chat_id}")
+            return jsonify({'success': True})
+        else:
+            logging.error(f"❌ Ошибка Telegram: {response.text}")
+            return jsonify({'success': False, 'error': response.text}), 500
         
     except Exception as e:
         logging.error(f"❌ Ошибка: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
-
-async def send_photo_to_bot(chat_id, photo_data):
-    try:
-        # Создаём сессию с прокси (если нужно)
-        session = AiohttpSession(proxy=PROXY_URL) if PROXY_URL else None
-        bot = Bot(token=BOT_TOKEN, session=session) if session else Bot(token=BOT_TOKEN)
-        
-        # Отправляем фото
-        photo_io = BytesIO(photo_data)
-        photo_io.name = 'photo.jpg'
-        
-        await bot.send_photo(
-            chat_id=int(chat_id),
-            photo=types.InputFile(photo_io),
-            caption="📸 Фото с сайта!"
-        )
-        
-        logging.info(f"✅ Фото отправлено в чат {chat_id}")
-        
-        await bot.session.close()
-        
-    except Exception as e:
-        logging.error(f"❌ Ошибка отправки фото: {e}")
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
