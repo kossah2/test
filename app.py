@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify
 import requests
 import os
 import logging
+import socks
+import socket
 
 logging.basicConfig(level=logging.INFO)
 
@@ -11,14 +13,13 @@ app = Flask(__name__)
 BOT_TOKEN = "8439897161:AAEkWaO7MZS-pSP1wbLnGN7kqKQ_UTa65Zc"
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
-# === ПРОКСИ (SOCKS5) ===
-PROXY_URL = "socks5://37.18.73.60:5566"
+# === ПРОКСИ SOCKS5 ===
+PROXY_HOST = "37.18.73.60"
+PROXY_PORT = 5566
 
-# === НАСТРОЙКА ПРОКСИ ДЛЯ REQUESTS ===
-proxies = {
-    'http': PROXY_URL,
-    'https': PROXY_URL
-}
+# Глобально настраиваем прокси для всех запросов
+socks.set_default_proxy(socks.SOCKS5, PROXY_HOST, PROXY_PORT)
+socket.socket = socks.socksocket
 
 # === ПРОВЕРКА ===
 @app.route('/')
@@ -38,16 +39,14 @@ def upload_file():
         if not chat_id:
             return jsonify({'success': False, 'error': 'Нет chat_id'}), 400
         
-        # === ОТПРАВЛЯЕМ ФОТО В TELEGRAM ЧЕРЕЗ ПРОКСИ ===
+        # === ОТПРАВЛЯЕМ ФОТО В TELEGRAM ===
         files = {'photo': (file.filename, file.read(), file.content_type)}
         data = {'chat_id': chat_id, 'caption': '📸 Фото с сайта!'}
         
-        # Отправляем запрос через прокси
         response = requests.post(
             f"{TELEGRAM_API}/sendPhoto",
             files=files,
-            data=data,
-            proxies=proxies  # 👈 ПРОКСИ
+            data=data
         )
         
         if response.status_code == 200:
