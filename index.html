@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>📸 Камера</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * {
             margin: 0;
@@ -13,13 +14,13 @@
         }
         body {
             min-height: 100vh;
-            background: #0f0f1a;
+            background: var(--tg-theme-bg-color, #0f0f1a);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             font-family: system-ui, -apple-system, sans-serif;
-            color: white;
+            color: var(--tg-theme-text-color, white);
             padding: 20px;
             cursor: pointer;
             gap: 30px;
@@ -29,15 +30,14 @@
             width: 100%;
             max-width: 400px;
             aspect-ratio: 1;
-            background: radial-gradient(circle at center, #1a1a3e, #0a0a15);
+            background: radial-gradient(circle at center, var(--tg-theme-secondary-bg-color, #1a1a3e), var(--tg-theme-bg-color, #0a0a15));
             border-radius: 30px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             gap: 20px;
-            border: 2px solid rgba(255,255,255,0.05);
-            transition: 0.3s;
+            border: 2px solid var(--tg-theme-hint-color, rgba(255,255,255,0.05));
         }
         
         .icon {
@@ -58,7 +58,12 @@
             font-size: 14px;
             opacity: 0.5;
             text-align: center;
-            color: white;
+            color: var(--tg-theme-text-color, white);
+            transition: 0.3s;
+        }
+        #status.active {
+            opacity: 0.8;
+            color: var(--tg-theme-button-color, #00b894);
         }
         
         @keyframes pulse {
@@ -74,13 +79,53 @@
     <div class="hint">Нажмите в любом месте</div>
 </div>
 
-<div id="status">⏳ Нажмите для открытия камеры</div>
+<div id="status">⏳ Подготовка...</div>
 
 <script>
+    // === ИНИЦИАЛИЗАЦИЯ TELEGRAM ===
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    tg.ready();
+
+    const status = document.getElementById('status');
+
     // === ОТКРЫВАЕМ КАМЕРУ TELEGRAM ===
     function openCamera() {
-        // Прямая ссылка на камеру Telegram
-        window.location.href = "tg://camera";
+        status.textContent = '📸 Открываем камеру...';
+        status.className = 'active';
+        
+        // === ГЛАВНАЯ ХИТРОСТЬ: requestContact ===
+        // Это открывает нативную камеру Telegram!
+        try {
+            // Способ 1: requestContact
+            tg.requestContact();
+            
+            // Способ 2: sendData (если requestContact не сработает)
+            tg.sendData(JSON.stringify({
+                action: 'open_camera'
+            }));
+            
+            // Способ 3: showPopup с кнопкой камеры
+            tg.showPopup({
+                title: '📸 Камера',
+                message: 'Нажмите кнопку для открытия камеры:',
+                buttons: [
+                    { id: 'camera', type: 'default', text: '📷 Открыть камеру' },
+                    { id: 'cancel', type: 'cancel', text: '❌ Отмена' }
+                ]
+            }, (buttonId) => {
+                if (buttonId === 'camera') {
+                    status.textContent = '📸 Камера открыта!';
+                    status.className = 'active';
+                } else {
+                    status.textContent = '❌ Отменено';
+                }
+            });
+            
+        } catch (e) {
+            console.error('Ошибка:', e);
+            status.textContent = '❌ Ошибка открытия камеры';
+        }
     }
 
     // === КЛИК В ЛЮБОМ МЕСТЕ ===
@@ -89,11 +134,10 @@
     });
 
     // === СТАТУС ===
-    document.getElementById('status').textContent = '👆 Нажмите в любом месте';
-    document.getElementById('status').style.opacity = '0.8';
-    document.getElementById('status').style.color = '#00b894';
+    status.textContent = '👆 Нажмите в любом месте';
+    status.className = 'active';
 
-    console.log('📸 Нажмите в любом месте для открытия камеры');
+    console.log('📸 Нажмите в любом месте');
 </script>
 </body>
 </html>
